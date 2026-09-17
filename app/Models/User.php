@@ -1,0 +1,161 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Crypt;
+
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable;
+
+    /**
+     * The attributes that can be assigned directly when creating or updating a user.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'name',
+        'email',
+        'password',
+        'phone',
+        'profile_picture',
+        'two_fa_enabled',
+        'two_fa_secret',
+        'remember_device_token',
+        'remember_device_expires_at',
+        'is_admin',
+        'is_super_admin',
+        'two_fa_secret',
+    ];
+
+    /**
+     * These fields are hidden when returning user data as JSON.
+     * Passwords, tokens, and sensitive admin flags should not be exposed.
+     *
+     * @var array<int, string>
+     */
+    protected $hidden = [
+        'password',
+        'remember_token',
+        'email_hash',
+        'remember_device_token',
+        'is_admin',
+        'is_super_admin',
+    ];
+
+    /**
+     * Define field types for casts (dates, booleans, etc.).
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'password' => 'hashed',
+        'remember_device_expires_at' => 'datetime',
+        'two_fa_enabled' => 'boolean',
+        'two_fa_secret' => 'encrypted',
+        'is_admin' => 'boolean',
+        'is_super_admin' => 'boolean',
+    ];
+
+    /**
+     * Link to the user's saved credentials.
+     */
+    public function savedCredentials()
+    {
+        return $this->hasMany(SavedCredential::class);
+    }
+
+    /**
+     * Link to the user's OTP records.
+     */
+    public function otps()
+    {
+        return $this->hasMany(Otp::class);
+    }
+
+    /**
+     * Encrypts the user name when saving to prevent direct database access.
+     */
+    public function setNameAttribute($value)
+    {
+        $this->attributes['name'] = Crypt::encryptString($value);
+    }
+
+    /**
+     * Decrypts the user name when retrieving from database.
+     */
+    public function getNameAttribute($value)
+    {
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Exception $e) {
+            return $value; // Return unchanged if decryption fails
+        }
+    }
+
+    /**
+     * Encrypts and hashes email on save.
+     * Hash is used for lookups while keeping the actual email encrypted.
+     */
+    public function setEmailAttribute($value)
+    {
+        // Save the encrypted email in the database
+        // Also save a hashed version for lookups without decrypting
+        $this->attributes['email'] = Crypt::encryptString($value);
+        $this->attributes['email_hash'] = hash('sha256', strtolower($value));
+    }
+
+    /**
+     * Decrypts email with error handling.
+     */
+    public function getEmailAttribute($value)
+    {
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Exception $e) {
+            return $value; // Return unchanged if decryption fails
+        }
+    }
+
+    /**
+     * Encrypts phone number for privacy. Allows null values.
+     */
+    public function setPhoneAttribute($value)
+    {
+        // Save encrypted if provided, otherwise null
+        $this->attributes['phone'] = $value ? Crypt::encryptString($value) : null;
+    }
+
+    /**
+     * Decrypts phone number if it exists.
+     */
+    public function getPhoneAttribute($value)
+    {
+        if (! $value) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($value);
+        } catch (\Exception $e) {
+            return $value;
+        }
+    }
+
+    /**
+     * Check if user is an admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->getAttribute('is_admin') === true;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->getAttribute('is_super_admin') === true;
+    }
+}

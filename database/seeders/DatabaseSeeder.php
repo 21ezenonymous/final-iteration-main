@@ -1,0 +1,25 @@
+<?php
+
+namespace Database\Seeders;
+
+use App\Models\User;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Seeder;
+
+class DatabaseSeeder extends Seeder
+{
+    use WithoutModelEvents;
+
+    /**
+     * Seed the application's database.
+     */
+    public function run(): void
+    {
+        // User::factory(10)->create();
+
+        // Only seed dummy reservations (assumes users/facilities already exist)
+$this->call(UserSeeder::class);
+        $this->call(FacilitySeeder::class);
+        $this->call(DummyReservationSeeder::class);
+    }
+}
