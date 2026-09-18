@@ -7,6 +7,18 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Deploying to Render
+
+This application can run on Render as a Docker web service while using Supabase PostgreSQL as its database.
+
+1. Push the repository to GitHub.
+2. In Render, choose **New > Blueprint** and select the repository. Render will read `render.yaml` and build the included `Dockerfile`.
+3. Set the secret environment variables listed in `render.yaml`, especially `APP_KEY`, `APP_URL`, `DB_HOST`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, and the Google and mail credentials.
+4. Set `APP_URL` to the deployed Render URL, for example `https://campus-reserve.onrender.com`.
+5. Set `GOOGLE_REDIRECT_URL` to `https://your-render-domain.onrender.com/auth/google/callback`, and add that exact callback URL in Google Cloud Console.
+
+The Supabase database values belong in Render environment variables, not in Git. The Docker startup runs the Laravel migrations against that PostgreSQL database. Render's local filesystem is ephemeral, so profile-picture files should eventually use Supabase Storage or another persistent object-storage disk; the database currently stores their Laravel file paths.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
