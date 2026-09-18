@@ -861,7 +861,7 @@ class AuthController extends Controller
      */
     public function redirectToGoogle(Request $request)
     {
-        $redirectUrl = $request->getSchemeAndHttpHost() . '/auth/google/callback';
+        $redirectUrl = config('services.google.redirect');
 
         return Socialite::driver('google')
             ->redirectUrl($redirectUrl)
