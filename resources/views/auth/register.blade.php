@@ -31,34 +31,6 @@
                         type="text"
                         required
                         class="w-full px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                        value="{{ old('name') }}"
-                    >
-                    @error('name')
-                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-                
-                <div class="space-y-2">
-                    <label for="email" class="block text-sm text-gray-700">Email</label>
-                    <input
-                        id="email"
-                        name="email"
-                        type="email"
-                        required
-                        class="w-full px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
-                        value="{{ old('email') }}"
-                    >
-                    @error('email')
-                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
-                
-                <div class="space-y-2">
-                    <label for="password" class="block text-sm text-gray-700">Password</label>
-                    <input
-                        id="password"
-                        name="password"
-                        type="password"
                         required
                         class="w-full px-4 py-2 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent"
                     >

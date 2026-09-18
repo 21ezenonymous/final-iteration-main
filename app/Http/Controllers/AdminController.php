@@ -35,8 +35,7 @@ class AdminController extends Controller
 
         $pendingReservations = Reservation::with(['user', 'facility'])
             ->where('status', 'pending')
-            ->orderBy('reservation_date')
-            ->orderBy('start_time')
+            ->orderByDesc('created_at')
             ->get();
 
         $recentReservations = Reservation::with(['user', 'facility'])

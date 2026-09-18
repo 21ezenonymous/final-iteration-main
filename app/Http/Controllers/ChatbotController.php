@@ -14,6 +14,17 @@ use Illuminate\Support\Facades\Notification;
 
 class ChatbotController extends Controller
 {
+    public function reset(): JsonResponse
+    {
+        session()->forget([
+            'chatbot_reservation',
+            'chatbot_cancellation',
+            'chatbot_last_action',
+        ]);
+
+        return response()->json(['reset' => true]);
+    }
+
     public function respond(Request $request): JsonResponse
     {
         $message = trim((string) $request->input('message'));
@@ -86,7 +97,7 @@ class ChatbotController extends Controller
             }
         }
 
-        if (($state['awaiting_confirmation'] ?? false) && preg_match('/^(yes|yeah|yep|confirm|go ahead|do it|submit)\b/i', $normalized)) {
+        if (($state['awaiting_confirmation'] ?? false) && preg_match('/^(yes|yeah|yep|sure|okay|ok|confirm|go ahead|do it|submit)\b/i', $normalized)) {
             $facility = Facility::active()->find($state['facility_id'] ?? null);
             $date = $state['date'] ?? null;
             $startTime = $state['start_time'] ?? null;
@@ -315,7 +326,7 @@ class ChatbotController extends Controller
         ]);
         return response()->json([
             'reply' => ($isReservationRequest ? 'The requested time is available. ' : '') . "Available on {$dateLabel} from {$timeLabel}: {$names}. You can name a room if you want me to submit a reservation request.",
-            'action_url' => route('reserve'),
+            'action_url' => url('/calendar/manage'),
             'action_label' => 'Open reservation form',
         ]);
     }
@@ -353,7 +364,7 @@ class ChatbotController extends Controller
     private function parseTimeRange(string $message): array
     {
         $message = preg_replace('/\b(?:12\s*)?noon\b/i', '12 pm', $message);
-        preg_match_all('/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i', $message, $matches, PREG_SET_ORDER);
+        preg_match_all('/(?<!\d)(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/i', $message, $matches, PREG_SET_ORDER);
         $times = [];
 
         foreach ($matches as $match) {
@@ -381,7 +392,7 @@ class ChatbotController extends Controller
 
     private function hasDateOrTimeRequest(string $message): bool
     {
-        return (bool) preg_match('/\b(today|tomorrow|20\d{2}-\d{2}-\d{2}|January|February|March|April|May|June|July|August|September|October|November|December|\d{1,2}(?::\d{2})?\s*(?:am|pm))\b/i', $message);
+        return (bool) preg_match('/\b(today|tomorrow|20\d{2}-\d{2}-\d{2}|January|February|March|April|May|June|July|August|September|October|November|December)\b|(?<!\d)\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i', $message);
     }
 
     private function isReservationStatusQuestion(string $message): bool
@@ -396,7 +407,7 @@ class ChatbotController extends Controller
 
     private function isSupportedMessage(string $message): bool
     {
-        return (bool) preg_match('/\b(hello|hi|hey|help|what can you do|website|site|account|login|profile|campus|room|rooms|facility|facilities|available|availability|schedule|reservation|reservations|reserve|reserved|book|booking|bookings|cancel|cancelled|delete|remove|pending|approved|accepted|declined|rejected|status|today|tomorrow|am|pm|noon|\d{4}-\d{2}-\d{2})\b/i', $message);
+        return (bool) preg_match('/\b(hello|hi|hey|help|what can you do|website|site|account|login|profile|campus|room|rooms|classroom|lab|laboratory|conference|facility|facilities|available|availability|schedule|reservation|reservations|reserve|reserved|book|booking|bookings|cancel|cancelled|delete|remove|pending|approved|accepted|declined|rejected|status|yes|yeah|yep|sure|okay|ok|confirm|submit|no|nope|today|tomorrow|am|pm|noon|\d{4}-\d{2}-\d{2})\b|(?<!\d)\d{1,2}(?::\d{2})?\s*(?:am|pm)\b/i', $message);
     }
 
     private function moderateMessage(string $message): array

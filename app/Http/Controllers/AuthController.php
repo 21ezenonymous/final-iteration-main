@@ -559,7 +559,15 @@ class AuthController extends Controller
         }
 
         if ($request->hasFile('profile_picture')) {
-            $data['profile_picture'] = $request->file('profile_picture')->store('profile_pictures', 'public');
+            $profilePicturePath = $request->file('profile_picture')->store('profile_pictures', 'public');
+
+            if (! $profilePicturePath) {
+                return back()->withErrors([
+                    'profile_picture' => 'The profile picture could not be saved. Please try again.',
+                ])->withInput();
+            }
+
+            $data['profile_picture'] = $profilePicturePath;
         }
 
         if ($isChangingPassword) {
@@ -684,7 +692,7 @@ class AuthController extends Controller
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'password' => $request->password,
             'profile_picture' => 'profile_pictures/default-avatar.png', // Default avatar
         ]);
 
@@ -849,50 +857,45 @@ class AuthController extends Controller
     }
 
     /**
-     * Redirect to Google OAuth
+     * Redirect to Google OAuth.
      */
     public function redirectToGoogle(Request $request)
     {
         $redirectUrl = $request->getSchemeAndHttpHost() . '/auth/google/callback';
+
         return Socialite::driver('google')
             ->redirectUrl($redirectUrl)
             ->redirect();
     }
 
     /**
-     * Handle Google OAuth callback
+     * Handle Google OAuth callback.
      */
     public function handleGoogleCallback()
     {
         try {
-            // Skip SSL checking for testing on localhost
-            $httpClient = new Client(['verify' => false]);
             $googleUser = Socialite::driver('google')
-                ->setHttpClient($httpClient)
+                ->setHttpClient(new Client(['verify' => false]))
                 ->user();
-        } catch (\Exception $e) {
-            // Record the error for debugging
-            \Log::error('Google OAuth Error: ' . $e->getMessage());
+        } catch (\Exception $exception) {
+            logger()->error('Google OAuth error', ['exception' => $exception->getMessage()]);
+
             return redirect('/login')->with('error', 'Failed to authenticate with Google.');
         }
 
-        // Check if user exists by email hash
         $emailHash = hash('sha256', strtolower($googleUser->getEmail()));
         $user = User::where('email_hash', $emailHash)->first();
 
-        // Create user if doesn't exist
-        if (!$user) {
+        if (! $user) {
             $user = User::create([
                 'name' => $googleUser->getName() ?: 'User',
                 'email' => $googleUser->getEmail(),
-                'password' => Hash::make(Str::random(16)), // They logged in with Google, so I create a random password for them
+                'password' => Str::random(16),
             ]);
         }
 
-        // Sign them in right away
         Auth::login($user);
-        $request = request();
-        $request->session()->regenerate();
+        request()->session()->regenerate();
 
         return redirect('/reserve');
     }

@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -53,13 +55,31 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password' => 'hashed',
         'remember_device_expires_at' => 'datetime',
         'two_fa_enabled' => 'boolean',
         'two_fa_secret' => 'encrypted',
         'is_admin' => 'boolean',
         'is_super_admin' => 'boolean',
     ];
+
+    /**
+     * Hash raw passwords once before persisting them.
+     * Existing already-hashed values are left intact.
+     */
+    public function setPasswordAttribute($value)
+    {
+        if (is_null($value)) {
+            $this->attributes['password'] = null;
+            return;
+        }
+
+        if (is_string($value) && (Str::startsWith($value, '$2y$') || Str::startsWith($value, '$2a$') || Str::startsWith($value, '$2b$'))) {
+            $this->attributes['password'] = $value;
+            return;
+        }
+
+        $this->attributes['password'] = Hash::make($value);
+    }
 
     /**
      * Link to the user's saved credentials.

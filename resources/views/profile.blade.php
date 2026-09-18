@@ -59,16 +59,23 @@
                                 <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
                                     <div class="relative h-24 w-24 overflow-hidden rounded-3xl border border-gray-200 bg-gray-100">
                                         @if(auth()->user()->profile_picture)
-                                            <img src="{{ asset('storage/' . auth()->user()->profile_picture) }}" alt="Profile picture" class="h-full w-full object-cover">
+                                            <img id="profile-picture-preview" src="{{ asset('storage/' . auth()->user()->profile_picture) }}" alt="Profile picture" class="h-full w-full object-cover" onerror="this.classList.add('hidden'); document.getElementById('profile-picture-empty').classList.remove('hidden');">
+                                            <div id="profile-picture-empty" class="hidden h-full w-full items-center justify-center text-center text-xs text-gray-400">No photo</div>
                                         @else
-                                            <div class="flex h-full w-full items-center justify-center text-gray-400">No photo</div>
+                                            <div id="profile-picture-empty" class="flex h-full w-full items-center justify-center text-gray-400">No photo</div>
                                         @endif
                                     </div>
                                     <div class="min-w-0 flex-1">
                                         <label class="block text-sm font-semibold text-gray-900">Profile picture</label>
                                         <p class="mt-1 text-sm text-gray-500">Square image works best.</p>
-                                        <input type="file" name="profile_picture" accept="image/png,image/jpeg,image/webp" class="mt-3 block w-full text-sm text-gray-700" />
-                                        @error('profile_picture')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
+                                        <div class="mt-3 flex items-center gap-3">
+                                            <label for="profile_picture_input" class="inline-flex cursor-pointer items-center justify-center rounded-full bg-black px-4 py-2 text-sm font-semibold text-white transition hover:bg-gray-800">
+                                                Choose File
+                                            </label>
+                                            <input id="profile_picture_input" type="file" name="profile_picture" accept="image/png,image/jpeg,image/webp" class="hidden" />
+                                            <span id="profile_picture_name" class="text-sm text-gray-500">No file chosen</span>
+                                        </div>
+                                        <p id="profile-picture-error" class="{{ $errors->has('profile_picture') ? '' : 'hidden' }} mt-2 text-sm text-red-600">{{ $errors->first('profile_picture') }}</p>
                                     </div>
                                 </div>
 
@@ -189,7 +196,7 @@
 
                         <div class="flex flex-col gap-3 sm:flex-row justify-end">
                             <a href="{{ route('reserve') }}" class="inline-flex items-center justify-center rounded-full border border-gray-300 px-6 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-all">Cancel</a>
-                            <button type="submit" class="inline-flex items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition-all">Save settings</button>
+                            <button id="save-settings-button" type="submit" class="inline-flex cursor-pointer items-center justify-center rounded-full bg-black px-6 py-3 text-sm font-semibold text-white hover:bg-gray-900 transition-all">Save settings</button>
                         </div>
                     </form>
                 </div>
@@ -269,9 +276,68 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        const profilePictureInput = document.getElementById('profile_picture_input');
+        const profilePictureName = document.getElementById('profile_picture_name');
         const twoFactorToggle = document.getElementById('two_fa_enabled');
         const authenticatorSetupPanel = document.getElementById('authenticator-setup-panel');
         const setupCurrentPassword = document.getElementById('setup-current-password');
+
+        profilePictureInput?.addEventListener('change', async function() {
+            const file = this.files && this.files[0];
+            const profilePictureError = document.getElementById('profile-picture-error');
+            const profileStatus = document.getElementById('profile-status');
+            profilePictureName.textContent = file ? file.name : 'No file chosen';
+
+            if (!file) {
+                return;
+            }
+
+            const preview = document.getElementById('profile-picture-preview');
+            const emptyState = document.getElementById('profile-picture-empty');
+            const localPreviewUrl = URL.createObjectURL(file);
+            if (preview) {
+                preview.src = localPreviewUrl;
+                preview.classList.remove('hidden');
+            }
+            emptyState?.classList.add('hidden');
+            profilePictureError?.classList.add('hidden');
+            profilePictureName.textContent = `${file.name} (uploading...)`;
+
+            const formData = new FormData();
+            formData.append('_token', profileSettingsForm.querySelector('input[name="_token"]').value);
+            formData.append('name', profileSettingsForm.querySelector('input[name="name"]').value);
+            formData.append('phone', profileSettingsForm.querySelector('input[name="phone"]').value);
+            formData.append('country_code', profileSettingsForm.querySelector('input[name="country_code"]').value);
+            formData.append('two_fa_enabled', twoFactorToggle.checked ? '1' : '0');
+            formData.append('profile_picture', file);
+
+            try {
+                const response = await fetch(profileSettingsForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: formData,
+                    credentials: 'same-origin',
+                });
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || data.errors?.profile_picture?.[0] || 'The profile picture could not be saved.');
+                }
+
+                profilePictureName.textContent = `${file.name} (saved)`;
+                profileStatus.textContent = 'Profile picture updated successfully.';
+                profileStatus.classList.remove('hidden');
+                profileStatus.classList.remove('text-red-800', 'bg-red-50', 'border-red-200');
+                profileStatus.classList.add('text-emerald-800', 'bg-emerald-50', 'border-emerald-200');
+            } catch (error) {
+                profilePictureName.textContent = file.name;
+                profilePictureError.textContent = error.message;
+                profilePictureError.classList.remove('hidden');
+            }
+        });
         const disableTwoFactorModal = document.getElementById('disable-2fa-modal');
         const profileSettingsForm = document.getElementById('profile-settings-form');
         const disableCurrentPassword = document.getElementById('disable-current-password');
@@ -288,6 +354,8 @@
         const passwordModalConfirm = document.getElementById('password-modal-confirm');
         const passwordModalError = document.getElementById('password-modal-error');
         const passwordRequirement = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+])[A-Za-z\d!@#$%^&*()_+]{5,30}$/;
+        const initialTwoFactorEnabled = {{ auth()->user()->two_fa_enabled ? 'true' : 'false' }};
+        const saveSettingsButton = document.getElementById('save-settings-button');
         let passwordTwoFactorConfirmed = false;
         let disableConfirmed = false;
 
@@ -409,8 +477,17 @@
 
         profileSettingsForm?.addEventListener('submit', function(event) {
             const isAuthenticatorAction = event.submitter?.formAction?.includes('/profile/2fa/');
+            const twoFactorChanged = twoFactorToggle.checked !== initialTwoFactorEnabled;
 
-            if (!isAuthenticatorAction && {{ auth()->user()->two_fa_enabled ? 'true' : 'false' }} && this.querySelector('input[name="password"]')?.value && !passwordTwoFactorConfirmed) {
+            if (!isAuthenticatorAction && twoFactorChanged && initialTwoFactorEnabled && !twoFactorToggle.checked && !disableConfirmed) {
+                event.preventDefault();
+                disableTwoFactorModal?.classList.remove('hidden');
+                disableTwoFactorModal?.classList.add('flex');
+                disableCurrentPassword?.focus();
+                return;
+            }
+
+            if (!isAuthenticatorAction && this.querySelector('input[name="password"]')?.value && initialTwoFactorEnabled && !passwordTwoFactorConfirmed) {
                 event.preventDefault();
                 passwordTwoFactorModal?.classList.remove('hidden');
                 passwordTwoFactorModal?.classList.add('flex');
@@ -418,7 +495,7 @@
                 return;
             }
 
-            if (!isAuthenticatorAction && !{{ auth()->user()->two_fa_enabled ? 'true' : 'false' }} && twoFactorToggle.checked) {
+            if (!isAuthenticatorAction && twoFactorChanged && !initialTwoFactorEnabled && twoFactorToggle.checked) {
                 event.preventDefault();
                 authenticatorSetupPanel?.classList.remove('hidden');
                 setupCurrentPassword.required = true;
@@ -426,11 +503,10 @@
                 return;
             }
 
-            if ({{ auth()->user()->two_fa_enabled ? 'true' : 'false' }} && !twoFactorToggle.checked && !disableConfirmed) {
-                event.preventDefault();
-                disableTwoFactorModal?.classList.remove('hidden');
-                disableTwoFactorModal?.classList.add('flex');
-                disableCurrentPassword?.focus();
+            if (!isAuthenticatorAction && saveSettingsButton) {
+                saveSettingsButton.disabled = true;
+                saveSettingsButton.classList.add('cursor-wait', 'opacity-70');
+                saveSettingsButton.textContent = 'Saving...';
             }
         });
 
